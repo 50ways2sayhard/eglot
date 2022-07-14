@@ -333,6 +333,10 @@ done by `eglot-reconnect'."
   "String displayed in mode line when Eglot is active."
   :type 'string)
 
+(defcustom eglot-max-candidates 100
+  "Max candidates."
+  :type 'number)
+
 (defvar eglot-withhold-process-id nil
   "If non-nil, Eglot will not send the Emacs process id to the language server.
 This can be useful when using docker to run a language server.")
@@ -646,10 +650,10 @@ treated as in `eglot-dbind'."
 (cl-defgeneric eglot-initialization-options (server)
   "JSON object to send under `initializationOptions'."
   (:method (s)
-   (let ((probe (plist-get (eglot--saved-initargs s) :initializationOptions)))
-     (cond ((functionp probe) (funcall probe s))
-           (probe)
-           (t eglot--{})))))
+           (let ((probe (plist-get (eglot--saved-initargs s) :initializationOptions)))
+             (cond ((functionp probe) (funcall probe s))
+                   (probe)
+                   (t eglot--{})))))
 
 (cl-defgeneric eglot-register-capability (server method id &rest params)
   "Ask SERVER to register capability METHOD marked with ID."
@@ -1048,11 +1052,11 @@ INTERACTIVE is t if called interactively."
   (let ((buffer (current-buffer)))
     (cl-labels
         ((maybe-connect
-          ()
-          (remove-hook 'post-command-hook #'maybe-connect nil)
-          (eglot--when-live-buffer buffer
-            (unless eglot--managed-mode
-              (apply #'eglot--connect (eglot--guess-contact))))))
+           ()
+           (remove-hook 'post-command-hook #'maybe-connect nil)
+           (eglot--when-live-buffer buffer
+             (unless eglot--managed-mode
+               (apply #'eglot--connect (eglot--guess-contact))))))
       (when buffer-file-name
         (add-hook 'post-command-hook #'maybe-connect 'append nil)))))
 
@@ -1104,7 +1108,7 @@ Each function is passed the server as an argument")
       (list "sh" "-c"
             (string-join (cons "stty raw > /dev/null;"
                                (mapcar #'shell-quote-argument contact))
-             " "))
+                         " "))
     contact))
 
 (defvar-local eglot--cached-server nil
@@ -1156,8 +1160,8 @@ This docstring appeases checkdoc, that's all."
                            :file-handler t)))
                      ,@more-initargs)))))
          (spread (lambda (fn) (lambda (server method params)
-                                (let ((eglot--cached-server server))
-                                 (apply fn server method (append params nil))))))
+                           (let ((eglot--cached-server server))
+                             (apply fn server method (append params nil))))))
          (server
           (apply
            #'make-instance class
@@ -1473,7 +1477,7 @@ Doubles as an indicator of snippet support."
       (setq-local markdown-fontify-code-blocks-natively t)
       (insert string)
       (let ((inhibit-message t)
-	    (message-log-max nil))
+	          (message-log-max nil))
         (ignore-errors (delay-mode-hooks (funcall mode))))
       (font-lock-ensure)
       (string-trim (buffer-string)))))
@@ -1563,7 +1567,7 @@ and just return it.  PROMPT shouldn't end with a question mark."
   (file-remote-p (project-root (eglot--project server))))
 
 (defun eglot--plist-keys (plist) "Get keys of a plist."
-  (cl-loop for (k _v) on plist by #'cddr collect k))
+       (cl-loop for (k _v) on plist by #'cddr collect k))
 
 
 ;;; Minor modes
@@ -1754,7 +1758,7 @@ If it is activated, also signal textDocument/didOpen."
                                            (force-mode-line-update t))))))
 
 (defun eglot-manual () "Open on-line documentation."
-  (interactive) (browse-url "https://github.com/joaotavora/eglot#readme"))
+       (interactive) (browse-url "https://github.com/joaotavora/eglot#readme"))
 
 (easy-menu-define eglot-menu nil "Eglot"
   `("Eglot"
@@ -1860,12 +1864,12 @@ Uses THING, FACE, DEFS and PREPEND."
            'keymap (let ((map (make-sparse-keymap)))
                      (define-key map [mode-line down-mouse-1] eglot-server-menu)
                      map))
-       ,@(when last-error
+         ,@(when last-error
              `("/" ,(eglot--mode-line-props
                      "error" 'compilation-mode-line-fail
                      '((mouse-3 eglot-clear-status  "Clear this status"))
                      (format "An error occurred: %s\n" (plist-get last-error
-                                                                 :message)))))
+                                                                  :message)))))
          ,@(when (and doing (not done-p))
              `("/" ,(eglot--mode-line-props doing
                                             'compilation-mode-line-run '())))
@@ -1897,7 +1901,7 @@ still unanswered LSP requests to the server\n"))))))))
                    (priority . ,(+ 50 i))
                    (keymap . ,(let ((map (make-sparse-keymap)))
                                 (define-key map [mouse-1]
-                                  (eglot--mouse-call 'eglot-code-actions))
+                                            (eglot--mouse-call 'eglot-code-actions))
                                 map)))))
 
 
@@ -2075,7 +2079,7 @@ THINGS are either registrations or unregisterations (sic)."
   (append
    (eglot--VersionedTextDocumentIdentifier)
    (list :languageId
-	 (eglot--language-id (eglot--current-server-or-lose))
+	       (eglot--language-id (eglot--current-server-or-lose))
          :text
          (eglot--widening
           (buffer-substring-no-properties (point-min) (point-max))))))
@@ -2179,16 +2183,16 @@ Records BEG, END and PRE-CHANGE-LENGTH locally."
           (run-with-idle-timer
            eglot-send-changes-idle-time
            nil (lambda () (eglot--when-live-buffer buf
-                            (when eglot--managed-mode
-                              (eglot--signal-textDocument/didChange)
-                              (setq eglot--change-idle-timer nil))))))))
+                       (when eglot--managed-mode
+                         (eglot--signal-textDocument/didChange)
+                         (setq eglot--change-idle-timer nil))))))))
 
 ;; HACK! Launching a deferred sync request with outstanding changes is a
 ;; bad idea, since that might lead to the request never having a
 ;; chance to run, because `jsonrpc-connection-ready-p'.
 (advice-add #'jsonrpc-request :before
             (cl-function (lambda (_proc _method _params &key
-                                        deferred &allow-other-keys)
+                                   deferred &allow-other-keys)
                            (when (and eglot--managed-mode deferred)
                              (eglot--signal-textDocument/didChange))))
             '((name . eglot--signal-textDocument/didChange)))
@@ -2225,10 +2229,10 @@ When called interactively, use the currently active server"
             (with-temp-buffer
               (let* ((uri-path (eglot--uri-to-path scopeUri))
                      (default-directory
-                       (if (and (not (string-empty-p uri-path))
-                                (file-directory-p uri-path))
-                           (file-name-as-directory uri-path)
-                         (project-root (eglot--project server)))))
+                      (if (and (not (string-empty-p uri-path))
+                               (file-directory-p uri-path))
+                          (file-name-as-directory uri-path)
+                        (project-root (eglot--project server)))))
                 (setq-local major-mode (eglot--major-mode server))
                 (hack-dir-local-variables-non-file-buffer)
                 (alist-get section eglot-workspace-configuration
@@ -2496,7 +2500,7 @@ for which LSP on-type-formatting should be requested."
                  `(:textDocument/onTypeFormatting
                    :documentOnTypeFormattingProvider
                    ,`(:position ,(eglot--pos-to-lsp-position beg)
-                      :ch ,(string on-type-format))))
+                                :ch ,(string on-type-format))))
                 ((and beg end)
                  `(:textDocument/rangeFormatting
                    :documentRangeFormattingProvider
@@ -2518,6 +2522,11 @@ for which LSP on-type-formatting should be requested."
                       :trimFinalNewlines (if delete-trailing-lines t :json-false))
        args)
       :deferred method))))
+
+(defun eglot--safe-subseq (sequence start &optional end)
+  (if end
+      (cl-subseq sequence start (min end (length sequence)))
+    (cl-subseq sequence start)))
 
 (defun eglot-completion-at-point ()
   "EGLOT's `completion-at-point' function."
@@ -2546,7 +2555,7 @@ for which LSP on-type-formatting should be requested."
                                        :deferred :textDocument/completion
                                        :cancel-on-input t))
                 (setq items (append
-                             (if (vectorp resp) resp (plist-get resp :items))
+                             (eglot--safe-subseq (if (vectorp resp) resp (plist-get resp :items)) 0 eglot-max-candidates)
                              nil))
                 (setq cached-proxies
                       (mapcar
@@ -2840,26 +2849,26 @@ for which LSP on-type-formatting should be requested."
   "EGLOT's `imenu-create-index-function'."
   (cl-labels
       ((visit (_name one-obj-array)
-              (imenu-default-goto-function
-               nil (car (eglot--range-region
-                         (eglot--dcase (aref one-obj-array 0)
-                           (((SymbolInformation) location)
-                            (plist-get location :range))
-                           (((DocumentSymbol) selectionRange)
-                            selectionRange))))))
+         (imenu-default-goto-function
+          nil (car (eglot--range-region
+                    (eglot--dcase (aref one-obj-array 0)
+                      (((SymbolInformation) location)
+                       (plist-get location :range))
+                      (((DocumentSymbol) selectionRange)
+                       selectionRange))))))
        (unfurl (obj)
-               (eglot--dcase obj
-                 (((SymbolInformation)) (list obj))
-                 (((DocumentSymbol) name children)
-                  (cons obj
-                        (mapcar
-                         (lambda (c)
-                           (plist-put
-                            c :containerName
-                            (let ((existing (plist-get c :containerName)))
-                              (if existing (format "%s::%s" name existing)
-                                name))))
-                         (mapcan #'unfurl children)))))))
+         (eglot--dcase obj
+           (((SymbolInformation)) (list obj))
+           (((DocumentSymbol) name children)
+            (cons obj
+                  (mapcar
+                   (lambda (c)
+                     (plist-put
+                      c :containerName
+                      (let ((existing (plist-get c :containerName)))
+                        (if existing (format "%s::%s" name existing)
+                          name))))
+                   (mapcan #'unfurl children)))))))
     (mapcar
      (pcase-lambda (`(,kind . ,objs))
        (cons
@@ -3071,21 +3080,21 @@ at point.  With prefix argument, prompt for ACTION-KIND."
                                 (eglot--project server))))))
     (cl-labels
         ((handle-event
-          (event)
-          (pcase-let ((`(,desc ,action ,file ,file1) event))
-            (cond
-             ((and (memq action '(created changed deleted))
-                   (cl-find file globs :test (lambda (f g) (funcall g f))))
-              (jsonrpc-notify
-               server :workspace/didChangeWatchedFiles
-               `(:changes ,(vector `(:uri ,(eglot--path-to-uri file)
-                                          :type ,(cl-case action
-                                                   (created 1)
-                                                   (changed 2)
-                                                   (deleted 3)))))))
-             ((eq action 'renamed)
-              (handle-event `(,desc 'deleted ,file))
-              (handle-event `(,desc 'created ,file1)))))))
+           (event)
+           (pcase-let ((`(,desc ,action ,file ,file1) event))
+             (cond
+              ((and (memq action '(created changed deleted))
+                    (cl-find file globs :test (lambda (f g) (funcall g f))))
+               (jsonrpc-notify
+                server :workspace/didChangeWatchedFiles
+                `(:changes ,(vector `(:uri ,(eglot--path-to-uri file)
+                                           :type ,(cl-case action
+                                                    (created 1)
+                                                    (changed 2)
+                                                    (deleted 3)))))))
+              ((eq action 'renamed)
+               (handle-event `(,desc 'deleted ,file))
+               (handle-event `(,desc 'created ,file1)))))))
       (unwind-protect
           (progn
             (dolist (dir dirs-to-watch)
