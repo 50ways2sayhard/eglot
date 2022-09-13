@@ -8,8 +8,11 @@
 way:
 
 * 📽 Scroll down this README for some [pretty gifs](#animated_gifs)
-* 📚 Read about [servers](#connecting), [commands and
-  keybindings](#commands), and [customization](#customization)
+* 📚 Read about:
+  - [Connecting to a server](#connecting)
+  - [Commands and keybindings](#commands)
+  - [Workspace configuration](#workspace-configuration)
+  - [Customization](#customization)
 * 📣 Read the [NEWS][news] file
 * 🏆 Folks over at Google [seem to like it][gospb].  Thanks!
 
@@ -61,9 +64,11 @@ find-library` can help you tell if that happened.
 * Javascript's [TS & JS Language Server][typescript-language-server]
 * Kotlin's [kotlin-language-server][kotlin-language-server]
 * Lua's [lua-lsp][lua-lsp]
+* Markdown's [marksman][marksman]
 * Mint's [mint-ls][mint-ls]
 * Nix's [rnix-lsp][rnix-lsp]
 * Ocaml's [ocaml-lsp][ocaml-lsp]
+* Perl's [Perl::LanguageServer][perl-language-server]
 * PHP's [php-language-server][php-language-server]
 * PureScript's [purescript-language-server][purescript-language-server]
 * Python's [pylsp][pylsp], [pyls][pyls] [pyright][pyright], or [jedi-language-server][jedi-language-server]
@@ -128,17 +133,32 @@ it be started as a server.  Notice the `:autoport` symbol in there: it
 is replaced dynamically by a local port believed to be vacant, so that
 the ensuing TCP connection finds a listening server.
 
-## Per-project server configuration
+<a name="workspace-configuration"></a>
+## Workspace configuration
 
-Most servers can guess good defaults and will operate nicely
-out-of-the-box, but some need to be configured specially via LSP
-interfaces.  Additionally, in some situations, you may also want a
-particular server to operate differently across different projects.
+Many servers can guess good defaults and operate nicely
+out-of-the-box, but some need to be configured via a special LSP
+`workspace/configuration` RPC call to work at all.  Additionally, you
+may also want a particular server to operate differently across
+different projects.
 
-Per-project settings are realized with Emacs's _directory variables_
-and the Elisp variable `eglot-workspace-configuration`.  To make a
-particular Python project always enable Pyls's snippet support, put a
-file named `.dir-locals.el` in the project's root:
+Per-project settings are realized with the Elisp variable
+`eglot-workspace-configuration`. 
+
+Before considering what to set the variable to, one must understand
+_how_ to set it.  `eglot-workspace-configuration` is a
+"directory-local" variable, and setting its variable globally or
+buffer-locally likely makes no sense. It should be set via
+`.dir-locals.el` or equivalent mechanisms.
+
+The variable's value is an _association list_ of _parameter sections_
+to _parameter objects_.  Names and formats of section and parameter
+objects are server specific.
+
+#### Simple `eglot-workspace-configuration`
+
+To make a particular Python project always enable Pyls's snippet
+support, put a file named `.dir-locals.el` in the project's root:
 
 ```lisp
 ((python-mode
@@ -147,16 +167,17 @@ file named `.dir-locals.el` in the project's root:
 ```
 
 This tells Emacs that any `python-mode` buffers in that directory
-should have a particular buffer-local value of
-`eglot-workspace-configuration`.  That variable's value should be
-_association list_ of _parameter sections_ which are presumably
-understood by the server.  In this example, we associate section
-`pyls` with the parameters object `(:plugins (:jedi_completion
-(:include_params t)))`.
+should have a particular value of `eglot-workspace-configuration`.
 
-Now, supposing that you also had some Go code in the very same
-project, you can configure the Gopls server in the same file.  Adding
-a section for `go-mode`, the file's contents become:
+Here, the value in question associates section `:pyls` with parameters
+`(:plugins (:jedi_completion (:include_params t)))`.  The parameter
+object is a plist converted to JSON before being sent to the server.
+
+#### Multiple servers in `eglot-workspace-configuration`
+
+Suppose you also had some Go code in the very same project, you can
+configure the Gopls server in the same `.dir-locals.el` file.  Adding
+a section for `go-mode`, the file's contents now become:
 
 ```lisp
 ((python-mode
@@ -167,9 +188,33 @@ a section for `go-mode`, the file's contents become:
       . ((:gopls . (:usePlaceholders t)))))))
 ```
 
+Alternatively, as a matter of taste, you may choose this equivalent
+setup, which sets the variables value in all all major modes of all
+buffers of a given project.
+
+```lisp
+((nil
+  . ((eglot-workspace-configuration
+      . ((:pyls . (:plugins (:jedi_completion (:include_params t))))
+         (:gopls . (:usePlaceholders t)))))))
+```
+
+#### `eglot-workspace-configuration` without `.dir-locals.el`
+
 If you can't afford an actual `.dir-locals.el` file, or if managing
-these files becomes cumbersome, the Emacs manual teaches you
-programmatic ways to leverage per-directory local variables.
+this file becomes cumbersome, the [Emacs
+manual][dir-locals-emacs-manual] teaches you programmatic ways to
+leverage per-directory local variables.  Look for the functions
+`dir-locals-set-directory-class` and `dir-locals-set-class-variables`.
+
+#### Dynamic `eglot-workspace-configuration` as a function
+
+If you need to determine the workspace configuration base on some
+dynamic context, make `eglot-workspace-configuration` a function.  It
+is passed the `eglot-lsp-server` instance and runs with
+`default-directory` set to the root of your project.  The function
+should return a value of the same form as described in the previous
+paragraphs.
 
 ## Handling quirky servers
 
@@ -527,7 +572,7 @@ for the request form, and we'll send it to you.
 [dart-analysis-server]: https://github.com/dart-lang/sdk/blob/master/pkg/analysis_server/tool/lsp_spec/README.md
 [elixir-ls]: https://github.com/elixir-lsp/elixir-ls
 [elm-language-server]: https://github.com/elm-tooling/elm-language-server
-[fortls]: https://github.com/gnikit/fortls
+[fortls]: https://github.com/hansec/fortran-language-server
 [futhark-lsp]: https://futhark-lang.org
 [gopls]: https://github.com/golang/tools/tree/master/gopls
 [godot]: https://godotengine.org
@@ -539,9 +584,11 @@ for the request form, and we'll send it to you.
 [typescript-language-server]: https://github.com/theia-ide/typescript-language-server
 [kotlin-language-server]: https://github.com/fwcd/KotlinLanguageServer
 [lua-lsp]: https://github.com/Alloyed/lua-lsp
+[marksman]: https://github.com/artempyanykh/marksman
 [mint-ls]: https://www.mint-lang.com/
 [rnix-lsp]: https://github.com/nix-community/rnix-lsp
 [ocaml-lsp]: https://github.com/ocaml/ocaml-lsp/
+[perl-language-server]: https://github.com/richterger/Perl-LanguageServer
 [php-language-server]: https://github.com/felixfbecker/php-language-server
 [purescript-language-server]: https://github.com/nwolverson/purescript-language-server
 [pyls]: https://github.com/palantir/python-language-server
@@ -578,3 +625,4 @@ for the request form, and we'll send it to you.
 [gospb]: https://opensource.googleblog.com/2020/10/announcing-latest-google-open-source.html
 [copyright-assignment]: https://www.fsf.org/licensing/contributor-faq
 [legally-significant]: https://www.gnu.org/prep/maintain/html_node/Legally-Significant.html#Legally-Significant
+[dir-locals-emacs-manual]: https://www.gnu.org/software/emacs/manual/html_node/emacs/Directory-Variables.html
